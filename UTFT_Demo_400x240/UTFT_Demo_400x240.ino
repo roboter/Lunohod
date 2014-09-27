@@ -9,7 +9,7 @@
 //
 // This program requires the UTFT library.
 //
-
+// Arduino Mega 2560 or Mega ADK
 #include <UTFT.h>
 
 // Declare which fonts we will be using
