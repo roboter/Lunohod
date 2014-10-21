@@ -1,4 +1,4 @@
 Lunohod
 =======
 
-Aduino programmable robot
+Arduino programmable robot
