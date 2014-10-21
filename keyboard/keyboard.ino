@@ -2,6 +2,12 @@
  */
 #include <Keypad.h>
 
+int X;
+int Y;
+int SW;
+const int analogInPinX = A0;  // Analog input pin that the potentiometer is attached to
+const int analogInPinY = A1;  // Analog input pin that the potentiometer is attached to
+const int PinSW = 9;  // Analog input pin that the potentiometer is attached to
 const byte ROWS = 4; // Four rows
 const byte COLS = 4; // Three columns
 // Define the Keymap
@@ -24,10 +30,27 @@ Keypad kpd = Keypad( makeKeymap(keys), rowPins, colPins, ROWS, COLS );
 void setup()
 {
   Serial.begin(9600);
+  pinMode(PinSW, INPUT_PULLUP);       // turn on pullup resistors
 }
 
 void loop()
 {
+  // read the analog in value:
+  X = analogRead(analogInPinX);  
+  Y = analogRead(analogInPinY);  
+  SW =digitalRead(PinSW);
+  // map it to the range of the analog out:
+//  outputValue = map(sensorValue, 0, 1023, 0, 255);  
+  // change the analog out value:
+//  analogWrite(analogOutPin, outputValue);           
+
+  // print the results to the serial monitor:
+  Serial.print("X = " );                       
+  Serial.print(X);      
+  Serial.print("\t Y = ");      
+  Serial.print(Y);   
+  Serial.print("\t SW = ");      
+  Serial.println(SW);   
   char key = kpd.getKey();
   if(key)  // Check for a valid key.
   {
