@@ -5,16 +5,18 @@
 //  Display.touch_DetectRegion(100,100, 200, 200) ;
  //Display.gfx_MoveTo(30, 30);
 
+#include <stdio.h>
 
 #define DisplaySerial Serial1 
 #define HWLOGGING Serial // Serial port for debugging
 #define RESETLINE 4
-#define TEXTWIDTH 3
-#define TEXTHEIGHT 2
-#define BUTTON_H 44
-#define BUTTON_W 160
-#define BUTTON_SMALL_W 36
-#define PADDING 10
+#define TEXTWIDTH 5
+#define TEXTHEIGHT 5
+#define BUTTON_H 70
+#define BUTTON_W 230
+#define BUTTON_SMALL_W 55
+#define PADDING 12
+#define OK_BUTTON_ROW 6
 
 #include "Picaso_Serial_4DLib.h"
 #include "Picaso_Const4D.h"
@@ -25,10 +27,14 @@ int x;
 int y;
 char cstr[20];
 String str;
-int rowadd = 3;
-int coladd = 1;
+int rowadd = 0;
+int coladd = 0;
 unsigned int num = 0;
 
+int commands[100];
+int duration[100];
+
+int index;
 void setup()
 {
   
@@ -49,6 +55,11 @@ void setup()
 
 #define INIT_STATE 0
 #define MOVE_STATE 1
+#define ROTATE_STATE 2
+#define GO_STATE 3
+#define ERASE_STATE 4
+
+#define MOVE 1
 
 int state = INIT_STATE;
 void loop()
@@ -56,7 +67,9 @@ void loop()
   Display.touch_Set(TOUCH_ENABLE) ;
   Display.touch_Set(TOUCH_REGIONDEFAULT) ;
   drawInitialScreen();
-
+// Draw a button as a List Box (sunken)
+//   Display.gfx_Selection(3, RED, YELLOW); // pre-select "Item3"
+//  Display.gfx_Button(DOWN, 30, 30, GREEN, WHITE, FONT3, 1, 1, "Item1\nItem2\nItem3\nItem4");
 
 
   while(1)
@@ -73,7 +86,6 @@ void loop()
     switch(state)
     { 
       case INIT_STATE:
-        
         if(insideRegion(0, 1, x, y, BUTTON_W)) // MOVE
         {
           HWLOGGING.print("MOVE");       
@@ -83,15 +95,26 @@ void loop()
         }else if (insideRegion(0, 2, x, y, BUTTON_W)) // ROTATE
         {
            HWLOGGING.print("ROTATE");       
-           drawButton("ROTATE", 0, 2, BUTTON_DOWN);
+           state = ROTATE_STATE;
+           //drawButton("ROTATE", 0, 2, BUTTON_DOWN);
+           drawRotateScreen();
         }else if (insideRegion(0, 3, x, y, BUTTON_W)) // SHOOT
         {
-           HWLOGGING.print("SHOOT");       
+          HWLOGGING.print("SHOOT");       
           drawButton("SHOOT", 0, 3, BUTTON_DOWN);
-        }else if (insideRegion(0, 5, x, y, BUTTON_W)) // ERACE
+        }else if (insideRegion(0, 5, x, y, BUTTON_W)) // GO
         {
-           HWLOGGING.print("ERACE");       
-          drawButton("ERACE", 0, 5, BUTTON_DOWN);
+          state = GO_STATE;
+          HWLOGGING.print("GO");       
+          go();
+          drawButton("GO", 0, 5, BUTTON_DOWN);
+        }else if (insideRegion(0, 6, x, y, BUTTON_W)) // ERASE
+        {
+          //state = ERASE_STATE;
+          state = INIT_STATE;
+          HWLOGGING.print("ERASE");       
+          drawButton("ERASE", 0, 6, BUTTON_DOWN);
+          index = 0;
         }
         break;
     
@@ -128,17 +151,38 @@ void loop()
         {
           add(0);
         }
-        else if(insideRegion(0, 10, x, y, BUTTON_W)) // BACK
+        else if(insideRegion(0, OK_BUTTON_ROW, x, y, BUTTON_W)) // OK
         {
-          state = INIT_STATE;
-          drawInitialScreen();
-        } else if(insideRegion(1, 10, x, y, BUTTON_W)) // OK
-        {
-          //TODO: Save
+          addCommand(MOVE);
           state = INIT_STATE;
           drawInitialScreen();
         }
-        
+//        } else if(insideRegion(1, 10, x, y, BUTTON_W)) // OK
+//        {
+//          //TODO: Save
+//          state = INIT_STATE;
+//          drawInitialScreen();
+//        }
+      break;
+      case ROTATE_STATE:
+      if(insideRegion(0, 1, x, y, BUTTON_W)) // LEFT
+        {
+           HWLOGGING.print("Left");       
+        }else if (insideRegion(0, 2, x, y, BUTTON_W)) // RIGHT
+        {
+           HWLOGGING.print("Right");       
+
+        }else if(insideRegion(0, OK_BUTTON_ROW, x, y, BUTTON_W)) // OK
+        {
+          state = INIT_STATE;
+          drawInitialScreen();
+        }
+//        } else if(insideRegion(1, 10, x, y, BUTTON_W)) // OK
+//        {
+//          //TODO: Save
+//          state = INIT_STATE;
+//          drawInitialScreen();
+//        }
       break;
     }
     
@@ -148,9 +192,17 @@ void loop()
 //    Display.touch_Set(TOUCH_REGIONDEFAULT) ;
 }
 
+void addCommand(int type)
+{
+  commands[index] = type;
+  duration[index] = num;
+  index++;
+}
+
 void add(int n)
 {
   HWLOGGING.print(num);       
+  if( ((long)num * 10 + n) > 65535) return;
   num = num * 10 + n;
   drawNumber(); 
 }
@@ -175,8 +227,8 @@ void drawNumber()
 {
     str = String(num);
   str.toCharArray(cstr,16);  
- Display.gfx_MoveTo(50,100);
-  
+// Display.gfx_MoveTo(50,100);
+   Display.txt_MoveCursor(0,2); 
 //  Display.txt_MoveCursor(1, 0);
 //  Display.txt_FontID(FONT1);
 //    Display.putstr(cstr) ;
@@ -184,6 +236,8 @@ void drawNumber()
 //  Display.txt_FontID(FONT2);
 //    Display.putstr(cstr) ;
 //  Display.txt_MoveCursor(3, 0);
+  Display.txt_Width(TEXTWIDTH);
+  Display.txt_Height(TEXTHEIGHT);
   Display.txt_FontID(FONT3);
 
   Display.putstr(cstr) ;
@@ -204,11 +258,14 @@ void drawInitialScreen()
   drawButton("MOVE",   0, 1, BUTTON_UP);
   drawButton("ROTATE", 0, 2, BUTTON_UP);
   drawButton("SHOOT",  0, 3, BUTTON_UP);
-  drawButton("ERACE",  0, 5, BUTTON_UP);
+  drawButton("GO",     0, 5, BUTTON_UP);
+  drawButton("ERASE",  0, 6, BUTTON_UP);
 }
 
 void drawMoveScreen()
 {
+  num =0;
+  add(0);
   Display.gfx_Cls();
   drawSmallButton("1", 0+coladd, 1+rowadd, BUTTON_UP);
   drawSmallButton("2", 1+coladd, 1+rowadd, BUTTON_UP);
@@ -223,8 +280,22 @@ void drawMoveScreen()
   drawSmallButton("9", 2+coladd, 3+rowadd, BUTTON_UP);
 
   drawSmallButton("0", 1+coladd, 4+rowadd, BUTTON_UP);  
-  drawButton("BACK", 0, 10, BUTTON_UP);
-  drawButton("OK", 1, 10, BUTTON_UP);
+  okBackButtons();
+}
+
+void okBackButtons()
+{
+//  drawButton("BACK", 0, 6, BUTTON_UP);
+  drawButton("OK", 0, OK_BUTTON_ROW, BUTTON_UP);
+}
+void drawRotateScreen()
+{
+   Display.gfx_Cls();
+  drawButton("LEFT",  0, 1, BUTTON_UP);
+  drawButton("RIGHT", 0, 2, BUTTON_UP);
+//  drawButton("ROTATE 180 ",  0, 3, BUTTON_UP);
+//  drawButton("ERACE",  0, 5, BUTTON_UP);
+  okBackButtons();
 }
 
 
@@ -262,8 +333,35 @@ void displayColors()
 
 void debugCoordinates()
 {
+  Display.txt_Width(1);
+  Display.txt_Height(1);
+  Display.txt_FontID(FONT1);
   Display.txt_MoveCursor(1,0);
   printint(x);
   Display.txt_MoveCursor(2,0);
   printint(y);
+  Display.txt_Width(TEXTWIDTH);
+  Display.txt_Height(TEXTHEIGHT);
+}
+
+void go()
+{
+  //TODO:go
+  Display.gfx_Cls();
+  for (int i=0; i!= index;i++)
+  {
+    Display.txt_MoveCursor(i,0);
+    printCommand(i, commands[i], duration[i]);
+  }
+}
+
+void printCommand(int i, int command, int duration)
+{
+  Display.txt_Width(2);
+  Display.txt_Height(2);
+  Display.txt_FontID(FONT3); 
+  String c = "Move";
+  c=i+" "+c+" "+duration;
+  c.toCharArray(cstr,16);  
+  Display.putstr(cstr);
 }
