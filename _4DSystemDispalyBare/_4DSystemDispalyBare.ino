@@ -39,19 +39,26 @@ unsigned int duration[100];
 int index;
 void setup()
 {
+  //MOTORS setup
+  //Setup Channel A
+  pinMode(12, OUTPUT); //Initiates Motor Channel A pin
+  pinMode(9, OUTPUT); //Initiates Brake Channel A pin
   
-  pinMode(13,OUTPUT);
-  pinMode(RESETLINE, OUTPUT);  // Set D4 on Arduino to Output (4D Arduino Adaptor V2 - Display Reset)
-  digitalWrite(RESETLINE, 1);  // Reset the Display via D4
-  delay(100);
-  digitalWrite(RESETLINE, 0);  // unReset the Display via D4
-  delay(5000);
+  pinMode(13, OUTPUT); //Initiates Motor Channel A pin
+  pinMode(8, OUTPUT); //Initiates Brake Channel A pin
+  
+//  
+//  pinMode(RESETLINE, OUTPUT);  // Set D4 on Arduino to Output (4D Arduino Adaptor V2 - Display Reset)
+//  digitalWrite(RESETLINE, 1);  // Reset the Display via D4
+//  delay(100);
+//  digitalWrite(RESETLINE, 0);  // unReset the Display via D4
+//  delay(5000);
   DisplaySerial.begin(9600) ;
   Display.TimeLimit4D   = 5000 ; // 5 second timeout on all commands
   Display.gfx_Cls();
   Display.gfx_ScreenMode(PORTRAIT) ;
   Display.putstr("Lunakhod loading...") ;
-  HWLOGGING.begin(9600);
+//  HWLOGGING.begin(9600);
 //  delay(5000); - uncomment in final
 }
 
@@ -71,6 +78,18 @@ int current_command = 0;
 int state = INIT_STATE;
 void loop()
 {
+//    //forward @ full speed A
+//  digitalWrite(12, HIGH); //Establishes forward direction of Channel A
+//  digitalWrite(9, LOW);   //Disengage the Brake for Channel A
+//  analogWrite(3, 255);   //Spins the motor on Channel A at full speed
+//  
+//    //forward @ full speed B
+//  digitalWrite(13, LOW); //Establishes forward direction of Channel B
+//  digitalWrite(8, LOW);   //Disengage the Brake for Channel B
+//  analogWrite(11, 255);   //Spins the motor on Channel B at full speed
+//  
+//  delay(1000);
+  
   Display.touch_Set(TOUCH_ENABLE) ;
   Display.touch_Set(TOUCH_REGIONDEFAULT) ;
   drawInitialScreen();
@@ -391,8 +410,18 @@ void go()
     switch(commands[i])
     {
       case MOVE:
-//          motors();
+            HWLOGGING.println("move forward");
+            move_forward(duration[i]);          
+
           break;
+      case ROTATE_LEFT:
+            HWLOGGING.println("rotate left");
+            rotate_left(duration[i]);          
+          break;
+      case ROTATE_RIGHT:
+            HWLOGGING.println("rotate right");      
+            rotate_right(duration[i]);          
+          break;          
       case SHOOT:
           break;
     }
@@ -423,4 +452,46 @@ String commandName(unsigned int command)
     case SHOOT:
       return "SHOOT";
   }
+}
+
+void move_forward(unsigned int duration)
+{
+  //forward @ full speed A
+  digitalWrite(12, HIGH); //Establishes forward direction of Channel A
+  digitalWrite(9, LOW);   //Disengage the Brake for Channel A
+  analogWrite(3, 255);   //Spins the motor on Channel A at full speed
+  
+    //forward @ full speed B
+  digitalWrite(13, LOW); //Establishes forward direction of Channel B
+  digitalWrite(8, LOW);   //Disengage the Brake for Channel B
+  analogWrite(11, 255);   //Spins the motor on Channel B at full speed
+  
+  delay(duration);
+  stop();
+}
+
+void rotate_right(unsigned int duration)
+{
+  //forward @ full speed B
+  digitalWrite(13, LOW); //Establishes forward direction of Channel B
+  digitalWrite(8, LOW);   //Disengage the Brake for Channel B
+  analogWrite(11, 255);   //Spins the motor on Channel B at full speed
+  
+  delay(duration);
+  stop();
+}
+
+void rotate_left(unsigned int duration)
+{
+  digitalWrite(12, HIGH); //Establishes forward direction of Channel A
+  digitalWrite(9, LOW);   //Disengage the Brake for Channel A
+  analogWrite(3, 255);   //Spins the motor on Channel A at full speed
+  delay(duration);
+  stop();
+}
+
+void stop()
+{
+  digitalWrite(9, HIGH);   //Disengage the Brake for Channel A
+  digitalWrite(8, HIGH);   //Disengage the Brake for Channel B
 }
