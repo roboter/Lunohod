@@ -7,6 +7,8 @@
 
 #include <stdio.h>
 
+//#define DEBUG
+
 #define DisplaySerial Serial1 
 #define HWLOGGING Serial // Serial port for debugging
 #define RESETLINE 4
@@ -31,8 +33,8 @@ int rowadd = 0;
 int coladd = 0;
 unsigned int num = 0;
 
-int commands[100];
-int duration[100];
+unsigned int commands[100];
+unsigned int duration[100];
 
 int index;
 void setup()
@@ -58,9 +60,14 @@ void setup()
 #define ROTATE_STATE 2
 #define GO_STATE 3
 #define ERASE_STATE 4
+#define KEYBOARD_STATE 5
 
 #define MOVE 1
+#define ROTATE_LEFT 2
+#define ROTATE_RIGHT 3
+#define SHOOT 4
 
+int current_command = 0;
 int state = INIT_STATE;
 void loop()
 {
@@ -77,7 +84,9 @@ void loop()
     do {} while (Display.touch_Get(TOUCH_STATUS) != TOUCH_PRESSED);
     x = Display.touch_Get(TOUCH_GETX);                          // so we can get the first point
     y = Display.touch_Get(TOUCH_GETY);
-    debugCoordinates();
+#if defined DEBUG    
+   debugCoordinates();
+#endif  
     HWLOGGING.print("X="); 
     HWLOGGING.print(x);  
     HWLOGGING.print("; Y=");
@@ -90,35 +99,35 @@ void loop()
         {
           HWLOGGING.print("MOVE");       
           drawButton("MOVE", 0, 1,BUTTON_DOWN);
-          state = MOVE_STATE;
-          drawMoveScreen();
+          current_command = MOVE;
+          state = KEYBOARD_STATE;
+          drawKeyboardScreen();
         }else if (insideRegion(0, 2, x, y, BUTTON_W)) // ROTATE
         {
            HWLOGGING.print("ROTATE");       
            state = ROTATE_STATE;
-           //drawButton("ROTATE", 0, 2, BUTTON_DOWN);
            drawRotateScreen();
         }else if (insideRegion(0, 3, x, y, BUTTON_W)) // SHOOT
         {
           HWLOGGING.print("SHOOT");       
           drawButton("SHOOT", 0, 3, BUTTON_DOWN);
+          current_command = SHOOT;
+          state = KEYBOARD_STATE;
+          drawKeyboardScreen();
         }else if (insideRegion(0, 5, x, y, BUTTON_W)) // GO
         {
           state = GO_STATE;
           HWLOGGING.print("GO");       
           go();
-          drawButton("GO", 0, 5, BUTTON_DOWN);
         }else if (insideRegion(0, 6, x, y, BUTTON_W)) // ERASE
         {
-          //state = ERASE_STATE;
-          state = INIT_STATE;
+          state = ERASE_STATE;
           HWLOGGING.print("ERASE");       
-          drawButton("ERASE", 0, 6, BUTTON_DOWN);
-          index = 0;
+          drawEraseScreen();
         }
         break;
     
-      case MOVE_STATE:
+      case KEYBOARD_STATE:
         if(insideRegion(0+coladd, 1+rowadd, x, y, BUTTON_SMALL_W)) // 1
         {
           add(1);
@@ -153,7 +162,8 @@ void loop()
         }
         else if(insideRegion(0, OK_BUTTON_ROW, x, y, BUTTON_W)) // OK
         {
-          addCommand(MOVE);
+          //addCommand(MOVE);
+          addCommand(current_command);
           state = INIT_STATE;
           drawInitialScreen();
         }
@@ -164,26 +174,51 @@ void loop()
 //          drawInitialScreen();
 //        }
       break;
+      
       case ROTATE_STATE:
-      if(insideRegion(0, 1, x, y, BUTTON_W)) // LEFT
-        {
-           HWLOGGING.print("Left");       
-        }else if (insideRegion(0, 2, x, y, BUTTON_W)) // RIGHT
-        {
-           HWLOGGING.print("Right");       
-
-        }else if(insideRegion(0, OK_BUTTON_ROW, x, y, BUTTON_W)) // OK
+        if(insideRegion(0, 1, x, y, BUTTON_W)) // LEFT
+          {
+             current_command = ROTATE_LEFT;
+             HWLOGGING.print("Left");       
+             state = KEYBOARD_STATE;
+             drawKeyboardScreen();
+          }else if (insideRegion(0, 2, x, y, BUTTON_W)) // RIGHT
+          {
+            current_command = ROTATE_RIGHT;
+            HWLOGGING.print("Right");       
+            state = KEYBOARD_STATE;
+            drawKeyboardScreen();
+          }else if(insideRegion(0, OK_BUTTON_ROW, x, y, BUTTON_W)) // OK
+          {
+            state = INIT_STATE;
+            drawInitialScreen();
+          }
+  //        } else if(insideRegion(1, 10, x, y, BUTTON_W)) // OK
+  //        {
+  //          //TODO: Save
+  //          state = INIT_STATE;
+  //          drawInitialScreen();
+  //        }
+     break;
+     case GO_STATE:
+        if (insideRegion(0, OK_BUTTON_ROW, x, y, BUTTON_W)) // GO
         {
           state = INIT_STATE;
           drawInitialScreen();
         }
-//        } else if(insideRegion(1, 10, x, y, BUTTON_W)) // OK
-//        {
-//          //TODO: Save
-//          state = INIT_STATE;
-//          drawInitialScreen();
-//        }
-      break;
+     break;
+     case ERASE_STATE:
+       if (insideRegion(0, 5, x, y, BUTTON_W)) // BACK
+        {
+          state = INIT_STATE;
+          drawInitialScreen();
+        }else if (insideRegion(0, 6, x, y, BUTTON_W)) // ERASE
+        {
+          state = INIT_STATE;
+          drawInitialScreen();
+          index = 0;
+        }
+     break;
     }
     
     
@@ -197,6 +232,7 @@ void addCommand(int type)
   commands[index] = type;
   duration[index] = num;
   index++;
+  num = 0;
 }
 
 void add(int n)
@@ -213,10 +249,11 @@ boolean insideRegion(int position_x, int position_y, int x, int y, int button_wi
   int y1 = BUTTON_H * position_y;
   int x2 = PADDING * (position_x + 1) + button_width * (position_x + 1);
   int y2 = PADDING * (position_y + 1) + (BUTTON_H - 12) * (position_y + 1);
+#if defined DEBUG      
   Display.gfx_Rectangle(x1, y1, x2, y2, RED);
   Display.gfx_Rectangle(x1, y1,x1+5,y1+5, WHITE);
-  
   Display.gfx_PutPixel(x, y, PINK);
+#endif
 
   if(x < x1 || x > x2) return false;
   if(y < y1 || y > y2) return false;
@@ -225,23 +262,13 @@ boolean insideRegion(int position_x, int position_y, int x, int y, int button_wi
 
 void drawNumber()
 {
-    str = String(num);
+  str = String(num);
   str.toCharArray(cstr,16);  
-// Display.gfx_MoveTo(50,100);
-   Display.txt_MoveCursor(0,2); 
-//  Display.txt_MoveCursor(1, 0);
-//  Display.txt_FontID(FONT1);
-//    Display.putstr(cstr) ;
-//  Display.txt_MoveCursor(2, 0);
-//  Display.txt_FontID(FONT2);
-//    Display.putstr(cstr) ;
-//  Display.txt_MoveCursor(3, 0);
   Display.txt_Width(TEXTWIDTH);
   Display.txt_Height(TEXTHEIGHT);
   Display.txt_FontID(FONT3);
-
+  Display.txt_MoveCursor(0,2); 
   Display.putstr(cstr) ;
-//   Display.gfx_MoveTo(0,0);
 }
 
 void printint(int val)
@@ -262,7 +289,14 @@ void drawInitialScreen()
   drawButton("ERASE",  0, 6, BUTTON_UP);
 }
 
-void drawMoveScreen()
+void drawEraseScreen()
+{
+  Display.gfx_Cls();
+  drawButton("BACK",   0, 5, BUTTON_UP);
+  drawButton("ERASE",  0, 6, BUTTON_UP);
+}
+
+void drawKeyboardScreen()
 {
   num =0;
   add(0);
@@ -348,20 +382,45 @@ void go()
 {
   //TODO:go
   Display.gfx_Cls();
-  for (int i=0; i!= index;i++)
+  drawButton("GO", 0, OK_BUTTON_ROW, BUTTON_DOWN);
+  for (int i=0; i!= index; i++)
   {
-    Display.txt_MoveCursor(i,0);
+    Display.txt_MoveCursor(i, 0);
     printCommand(i, commands[i], duration[i]);
+    
+    switch(commands[i])
+    {
+      case MOVE:
+//          motors();
+          break;
+      case SHOOT:
+          break;
+    }
   }
 }
 
-void printCommand(int i, int command, int duration)
+void printCommand(int i,unsigned int command, unsigned int duration)
 {
   Display.txt_Width(2);
   Display.txt_Height(2);
   Display.txt_FontID(FONT3); 
-  String c = "Move";
-  c=i+" "+c+" "+duration;
+  String c = commandName(command);
+  c=String(i)+" "+c+" "+duration;
   c.toCharArray(cstr,16);  
   Display.putstr(cstr);
+}
+
+String commandName(unsigned int command)
+{
+  switch(command)
+  {
+    case MOVE:
+      return "MOVE";
+    case ROTATE_LEFT:
+      return "LEFT";
+    case ROTATE_RIGHT:
+      return "RIGHT";
+    case SHOOT:
+      return "SHOOT";
+  }
 }
